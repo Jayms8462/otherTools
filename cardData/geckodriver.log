@@ -1,0 +1,28 @@
+1690921971121	geckodriver	INFO	Listening on 127.0.0.1:57563
+1690921974180	mozrunner::runner	INFO	Running command: "C:\\\\Program Files\\\\Mozilla Firefox\\\\firefox.exe" "--marionette" "detach=True" "-headless" "--remote-d ... 4" "--remote-allow-hosts" "localhost" "-no-remote" "-profile" "C:\\Users\\ajpor\\AppData\\Local\\Temp\\rust_mozprofilezN92my"
+*** You are running in headless mode.
+console.warn: services.settings: Ignoring preference override of remote settings server
+console.warn: services.settings: Allow by setting MOZ_REMOTE_SETTINGS_DEVTOOLS=1 in the environment
+1690921974451	Marionette	INFO	Marionette enabled
+Dynamically enable window occlusion 0
+1690921974516	Marionette	INFO	Listening on port 57574
+WebDriver BiDi listening on ws://127.0.0.1:57564
+Read port: 57574
+1690921974676	RemoteAgent	WARN	TLS certificate errors will be ignored for this session
+[GFX1-]: RenderCompositorSWGL failed mapping default framebuffer, no dt
+console.error: ({})
+DevTools listening on ws://127.0.0.1:57564/devtools/browser/651b9804-8f72-472b-9555-c0f3fc424f2e
+1690922071533	geckodriver	INFO	Listening on 127.0.0.1:57646
+1690922074595	mozrunner::runner	INFO	Running command: "C:\\\\Program Files\\\\Mozilla Firefox\\\\firefox.exe" "--marionette" "detach=True" "-headless" "--remote-d ... 7" "--remote-allow-hosts" "localhost" "-no-remote" "-profile" "C:\\Users\\ajpor\\AppData\\Local\\Temp\\rust_mozprofileP6XaSM"
+*** You are running in headless mode.
+console.warn: services.settings: Ignoring preference override of remote settings server
+console.warn: services.settings: Allow by setting MOZ_REMOTE_SETTINGS_DEVTOOLS=1 in the environment
+1690922074819	Marionette	INFO	Marionette enabled
+Dynamically enable window occlusion 0
+1690922074879	Marionette	INFO	Listening on port 57654
+WebDriver BiDi listening on ws://127.0.0.1:57647
+Read port: 57654
+1690922075032	RemoteAgent	WARN	TLS certificate errors will be ignored for this session
+[GFX1-]: RenderCompositorSWGL failed mapping default framebuffer, no dt
+console.error: ({})
+DevTools listening on ws://127.0.0.1:57647/devtools/browser/6e5eea95-f870-490a-9a48-4797d60cb5ac
