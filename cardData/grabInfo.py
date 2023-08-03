@@ -5,6 +5,7 @@ from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.firefox.service import Service
 from deepdiff import DeepDiff
 import csv
 import argparse
@@ -16,10 +17,14 @@ load_dotenv(dotenv_path='./login.env')
 parser = argparse.ArgumentParser(description='A Script to grab into from tcdb.com and collect the card data. \
                                  Adding this data to the respective DB and killing the process. \
                                  This script is designed to operate on independant systems to distribute the workload between them. \
+                                 -u or --username, username for DB auth \
+                                 -p or --password, password for db auth \
                                  -U or --url ***Required***, Sets Url e.x. https://www.tcdb.com/ViewSet.cfm/sid/132133/1990-Green-Bay-Packers-Police \
                                  -D or --db ***Required***, database name e.x. cards \
                                  -H or --host ***Required***, host to run the script \
                                  -P or --port ***Required***, mongodb port number')
+parser.add_argument('-u', '--username', type=str, default=os.getenv('user'), help='Username for DB Auth')
+parser.add_argument('-p', '--password', type=str, default=os.getenv('password'), help='Password for DB Auth')
 parser.add_argument('-U', '--url', type=str, required=True, help="Sets Url e.x. https://www.tcdb.com/ViewSet.cfm/sid/132133/1990-Green-Bay-Packers-Police")
 parser.add_argument('-D', '--db', type=str, required=True, help="database name e.x. cards")
 parser.add_argument('-H', '--host', type=str, required=True, help="host to run the script")
@@ -28,13 +33,14 @@ args = parser.parse_args()
 
 # os.system('cls' if os.name == 'nt' else 'clear')
 if os.name == 'nt':
+    service = Service(executable_path=r'C:\\Users\\ajpor\\OneDrive\\Desktop\\cardData\\geckodriver.exe')
     options = Options()
     options.binary_location = r'C:\\Program Files\\Mozilla Firefox\\firefox.exe'
     options.add_argument("detach=True")
-    options.headless= True
-    driver = webdriver.Firefox(executable_path=r'C:\\Users\\ajpor\\OneDrive\\Desktop\\cardData\\geckodriver.exe', options=options)
+    options.add_argument("-headless")
+    driver = webdriver.Firefox(service=service, options=options, log_path="./geckodriver.log")
 
-dbString = "mongodb://" + os.getenv('user') + ':' + os.getenv('password') + "@" + args.host + ":" + args.port + "/?directConnection=true&serverSelectionTimeoutMS=2000&appName=mongosh+1.10.1&authSource=admin"
+dbString = "mongodb://" + args.username + ':' + args.password + "@" + args.host + ":" + args.port
 
 def get_database():
    CONNECTION_STRING = dbString
@@ -263,12 +269,6 @@ if __name__ == "__main__":
                     collection_name.insert_one(itemImport)
 
         idx += 1
-
-        if args.host == "127.0.0.1":
-            print("localHost")
-        else:
-            print("remoteHost")
-
         print(idx, "Complete:", i.replace("\n", ""))
     # except:
     #     i = i.replace('\n', '')
