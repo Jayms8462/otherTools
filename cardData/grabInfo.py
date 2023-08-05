@@ -199,12 +199,6 @@ if __name__ == "__main__":
 
     dbname = get_database()
 
-    # url = "https://www.tcdb.com/ViewSet.cfm/sid/222460/1868-Snyder-&-Peck" #CardCount = 1
-    # url = "https://www.tcdb.com/ViewSet.cfm/sid/254403/1888-S.F.-Hess-California-League-Minors-(N338-1)" # CardCount = 25
-    # url = "https://www.tcdb.com/ViewSet.cfm/sid/132148/1949-Hage's-Dairy" #cardCount = 105
-    # url = "https://www.tcdb.com/ViewSet.cfm/sid/60251/1992-SkyBox-AA" #310
-    # url = "https://www.tcdb.com/ViewSet.cfm/sid/23785/2008-Topps-Moments-&-Milestones---Red" #13468
-    # url = "https://www.tcdb.com/Checklist.cfm/sid/357729/2023-Bowman" # Release Date
     url = args.url
     urlChecklist = url.replace("ViewSet.cfm", "Checklist.cfm")
     idx = 0
