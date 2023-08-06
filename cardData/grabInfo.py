@@ -11,6 +11,7 @@ import csv
 import argparse
 from dotenv import load_dotenv
 from pathlib import Path
+import platform
 
 load_dotenv(dotenv_path='./login.env')
 
@@ -29,22 +30,28 @@ parser.add_argument('-H', '--host', type=str, required=True, help="host to run t
 parser.add_argument('-P', '--port', type=str, required=True, help="mongodb port number")
 args = parser.parse_args()
 
-if os.name == 'nt':
-    os.system('cls')
-    try:
+if platform.system() == 'Windows':
+    osCheck = os.popen('systeminfo | findstr /B /C:"OS Name"').read()
+    if 'Windows 11' in osCheck:
         service = Service(executable_path=r'C:\\Users\\ajpor\\OneDrive\\Desktop\\cardData\\geckodriver.exe')
         options = Options()
         options.binary_location = r'C:\\Program Files\\Mozilla Firefox\\firefox.exe'
         options.add_argument("detach=True")
         options.add_argument("-headless")
-        driver = webdriver.Firefox(service=service, options=options, log_path="./geckodriver.log")
-    except:
+        driver = webdriver.Firefox(service=service, options=options)
+    elif 'Windows 10' in osCheck:
         service = Service(executable_path=r'C:\\Users\\ajpor\\Desktop\\git\\otherTools\\cardData\\geckodriver.exe')
         options = Options()
         options.binary_location = r'C:\\Program Files\\Mozilla Firefox\\firefox.exe'
         options.add_argument("detach=True")
         options.add_argument("-headless")
-        driver = webdriver.Firefox(service=service, options=options, log_path="./geckodriver.log")
+        driver = webdriver.Firefox(service=service, options=options)
+else:
+    print('Linux')
+
+
+
+
 
 def get_database():
    dbString = "mongodb://" + args.username + ':' + args.password + "@" + args.host + ":" + args.port
@@ -119,43 +126,46 @@ def checkDupRecord(setDbName, valData, recordCheckUrl, type, typeSearch):
             collection_name.insert_one(valData.__dict__)
 
 def getCardInfo(driver, url):
-    cardSet = driver.find_element(By.XPATH, "/html/body/div[1]/div[3]/div[1]/div[1]/p[1]/strong").text
-    tcdbUrl = url
-    setYear = driver.find_element(By.XPATH, "/html/body/div[1]/div[3]/div[2]/div[1]/div[1]/nav/ol/li[4]/a").text
-    setType = driver.find_element(By.XPATH, "/html/body/div[1]/div[3]/div[2]/div[1]/div[1]/nav/ol/li[2]/a").text
-    tableEle = driver.find_element(By.XPATH, "/html/body/div[1]/div[3]/div[2]/div[1]/table[2]/tbody").find_elements(By.TAG_NAME, "tr")
-    priceguideUrl = ""
-    for j in tableEle:
-        cardUrlData = []
-        tableData = j.text.replace('\n', '\t').replace('   ', '\t').replace('  ', '').split('\t')
-        for k in j.find_elements(By.TAG_NAME, "a"):
-            if k.get_attribute("href") != None:
-                if "ViewCard.cfm" in k.get_attribute("href"):
-                    if k.get_attribute("href") not in cardUrlData:
-                        cardUrlData.append(k.get_attribute("href"))
-        if len(tableData) > 3:
-                cardNum = tableData[0]
-                playerName = tableData[1]
-                playerTeam = tableData[3]
-                playerExtra = tableData[2]
-                unfilteredData = j.text.replace('\n', ' ')
-                cardUrl = cardUrlData[0]
-        elif len(tableData) == 2:
-                cardNum = tableData[0]
-                playerName = tableData[1]
-                playerTeam = ""
-                playerExtra = ""
-                unfilteredData = j.text.replace('\n', ' ')
-                cardUrl = cardUrlData[0]
-        else:
-                cardNum = tableData[0]
-                playerName = tableData[1]
-                playerTeam = tableData[2]
-                playerExtra = ""
-                unfilteredData = j.text.replace('\n', ' ')
-                cardUrl = cardUrlData[0]
-        cardData = cardImport(cardNum=cardNum, playerName=playerName, playerTeam=playerTeam, playerExtra=playerExtra, unfilteredData=unfilteredData, cardUrl=cardUrl, cardSet=cardSet, setYear=setYear, setType=setType, tcdbUrl=tcdbUrl, priceguideUrl=priceguideUrl)
-        checkDupRecord(setDbName="cards", valData=cardData, recordCheckUrl=cardData.cardUrl, type="card", typeSearch="cardUrl")
+    try:
+        cardSet = driver.find_element(By.XPATH, "/html/body/div[1]/div[3]/div[1]/div[1]/p[1]/strong").text
+        tcdbUrl = url.replace('\n', '')
+        setYear = driver.find_element(By.XPATH, "/html/body/div[1]/div[3]/div[2]/div[1]/div[1]/nav/ol/li[4]/a").text
+        setType = driver.find_element(By.XPATH, "/html/body/div[1]/div[3]/div[2]/div[1]/div[1]/nav/ol/li[2]/a").text
+        tableEle = driver.find_element(By.XPATH, "/html/body/div[1]/div[3]/div[2]/div[1]/table[2]/tbody").find_elements(By.TAG_NAME, "tr")
+        priceguideUrl = ""
+        for j in tableEle:
+            cardUrlData = []
+            tableData = j.text.replace('\n', '\t').replace('   ', '\t').replace('  ', '').split('\t')
+            for k in j.find_elements(By.TAG_NAME, "a"):
+                if k.get_attribute("href") != None:
+                    if "ViewCard.cfm" in k.get_attribute("href"):
+                        if k.get_attribute("href") not in cardUrlData:
+                            cardUrlData.append(k.get_attribute("href"))
+            if len(tableData) > 3:
+                    cardNum = tableData[0]
+                    playerName = tableData[1]
+                    playerTeam = tableData[3]
+                    playerExtra = tableData[2]
+                    unfilteredData = j.text.replace('\n', ' ')
+                    cardUrl = cardUrlData[0]
+            elif len(tableData) == 2:
+                    cardNum = tableData[0]
+                    playerName = tableData[1]
+                    playerTeam = ""
+                    playerExtra = ""
+                    unfilteredData = j.text.replace('\n', ' ')
+                    cardUrl = cardUrlData[0]
+            else:
+                    cardNum = tableData[0]
+                    playerName = tableData[1]
+                    playerTeam = tableData[2]
+                    playerExtra = ""
+                    unfilteredData = j.text.replace('\n', ' ')
+                    cardUrl = cardUrlData[0]
+            cardData = cardImport(cardNum=cardNum, playerName=playerName, playerTeam=playerTeam, playerExtra=playerExtra, unfilteredData=unfilteredData, cardUrl=cardUrl, cardSet=cardSet, setYear=setYear, setType=setType, tcdbUrl=tcdbUrl, priceguideUrl=priceguideUrl)
+            checkDupRecord(setDbName="cards", valData=cardData, recordCheckUrl=cardData.cardUrl, type="card", typeSearch="cardUrl")
+    except NoSuchElementException:
+        errorItems(url)
 
 def getSetData(driver, url, dbname):
     setTitle = driver.find_element(By.XPATH, "/html/body/div[1]/div[3]/div[1]/div[1]/p[1]/strong").text
@@ -189,7 +199,7 @@ def getSetData(driver, url, dbname):
 
         setYear = driver.find_element(By.XPATH, "/html/body/div[1]/div[3]/div[2]/div[1]/div/nav/ol/li[4]/a").text
         setType = driver.find_element(By.XPATH, "/html/body/div[1]/div[3]/div[2]/div[1]/div/nav/ol/li[2]/a").text
-        setUrl = url
+        setUrl = url.replace("\n", '')
         setData = setInfo(title = setTitle, publisher = "", setName = "", subSet = "", setCount = setTotalCards, releaseDate = setReleaseDate, setYear = setYear, tcdbUrl = setUrl, priceguideUrl = "", setType = setType)
 
         checkDupRecord(setDbName="cardTitles", valData=setData, recordCheckUrl=setData.tcdbUrl, type="set", typeSearch="tcdbUrl")
@@ -229,6 +239,9 @@ if __name__ == "__main__":
             pageLink += 1
     except:
         getCardInfo(driver, url)
+
+    with open('complete.txt', 'a', encoding="utf-8") as f:
+        f.write(url)
 
     driver.close()
     driver.quit()
