@@ -1,0 +1,5 @@
+9	John Smoltz
+14	Kenny Lofton
+17	Eddie Murray
+19	Jim Thome
+20	Omar Vizquel
