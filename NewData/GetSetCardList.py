@@ -4,18 +4,33 @@ from selenium.webdriver.firefox.options import Options
 from selenium.common.exceptions import TimeoutException, WebDriverException
 from pymongo import MongoClient
 import re
+import urllib.parse
+
+# MongoDB connection details
+username = 'your_username'
+password = 'your_password'
+host = 'localhost'  # or the IP address of your MongoDB server
+port = 27017
+auth_db = 'auth_db'  # or the name of your authentication database
+db_name = 'db_name'
+
+# URL-encode the username and password
+encoded_username = urllib.parse.quote_plus(username)
+encoded_password = urllib.parse.quote_plus(password)
 
 def getSetCollection():
     # Connect to the MongoDB client
-    client = MongoClient('mongodb://localhost:27017/')
-    db = client['carddb']
+    uri = f'mongodb://{encoded_username}:{encoded_password}@{host}:{port}/{db_name}?authSource={auth_db}'
+    client = MongoClient(uri)
+    db = client[db_name]
     collection = db['Sets']
     return collection
 
 def getCardCollection(entry_type):
     # Connect to the MongoDB client
-    client = MongoClient('mongodb://localhost:27017/')
-    db = client['carddb']
+    uri = f'mongodb://{encoded_username}:{encoded_password}@{host}:{port}/{db_name}?authSource={auth_db}'
+    client = MongoClient(uri)
+    db = client[db_name]
     collection = db[entry_type]
     return collection
 
@@ -28,9 +43,9 @@ def defineDriver():
 def getData(driver, url, collection, entry_id, entry_type):
     driver.get(url)
 
-     # Find all checkbox elements
+    # Find all checkbox elements
     checkboxes = driver.find_elements(By.CSS_SELECTOR, 'input[type="checkbox"]')
-    
+
     # Extract the text following each checkbox
     data = []
     for checkbox in checkboxes:
@@ -39,14 +54,14 @@ def getData(driver, url, collection, entry_id, entry_type):
 
     # Get the length of data
     total_cards = len(data)
-    
+
     # Update the collection entry with total_cards and cardList
     collection.update_one(
         {'_id': entry_id},
         {'$set': {'Total Cards': total_cards}}
     )
 
-    #Redefine collection to put card list in the correct collection
+    # Redefine collection to put card list in the correct collection
     collection = getCardCollection(entry_type)
 
     for item in data:
@@ -70,7 +85,6 @@ def getData(driver, url, collection, entry_id, entry_type):
         else:
             print(f"Failed to parse item: {item}")
 
-
 # Entrypoint
 # Find an entry where cardListComplete is false
 collection = getSetCollection()
@@ -79,7 +93,13 @@ driver = defineDriver()
 
 while count >= 0:
     collection = getSetCollection()
-    entry = collection.find_one({'cardListComplete': False})
+    pipeline = [
+        {'$match': {'cardListComplete': False}},
+        {'$sample': {'size': 1}}
+    ]
+    entries = list(collection.aggregate(pipeline))
+    entry = entries[0] if entries else None
+
     if entry:
         original_url = entry.get('Url')
 
@@ -88,7 +108,7 @@ while count >= 0:
         if match:
             sid_number = match.group(1)
             checklistUrl = "https://www.tcdb.com/PrintChecklist.cfm/sid/" + sid_number
-            getData(driver = driver, url = checklistUrl, collection = collection, entry_id=entry['_id'], entry_type=entry['Type'])
+            getData(driver=driver, url=checklistUrl, collection=collection, entry_id=entry['_id'], entry_type=entry['Type'])
 
             # to Update once card list is input into db
             collection.update_one({'_id': entry['_id']}, {'$set': {'cardListComplete': True}})
@@ -99,4 +119,4 @@ while count >= 0:
         print("No entry found with cardListComplete: false")
 
     count = count - 1
-    print("Remaining:", count , "Url Complete:", original_url)
+    print("Remaining:", count, "Url Complete:", original_url)
