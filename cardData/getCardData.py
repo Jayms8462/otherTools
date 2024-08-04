@@ -5,6 +5,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
 import re
 import time
+import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # MongoDB connection details
 username = <username>
@@ -38,11 +40,79 @@ options = Options()
 options.headless = True  # Run in headless mode to avoid opening browser windows
 driver = webdriver.Firefox(options=options)
 
+def calculate_match_percentage(record_name, card_name):
+    record_words = record_name.split()
+    card_words = card_name.split()
+    match_count = sum(1 for word in record_words if word in card_words)
+    return (match_count / len(record_words)) * 100
+
+# For debugging purposes
+# def write_to_file(data, filename='cards_data.json'):
+#     with open(filename, 'w') as file:
+#         json.dump(data, file, indent=4)
+
+def update_card(card, db):
+    set_type = card['set_type']
+    original_url = card['original_url']
+    card_number = card['card_number']
+    card_name = card['card_name']
+    front_photo_link = card['front_photo']
+    back_photo_link = card['back_photo']
+    team = card['team']
+
+    # Connect to the appropriate collection based on set_type
+    collection = db[set_type]
+
+    # Search for the record with original_url, card number, and a regex match for card name
+    record = collection.find_one({
+        "original_url": original_url,
+        "card_number": card_number
+    })
+
+    # Check if the record exists and if card_name lengths and values match
+    if record:
+        match_percentage = calculate_match_percentage(record['card_name'], card_name)
+        if len(card_name) == len(record['card_name']) and record['card_name'] == card_name:
+            # Update the record with new photo links and add player team
+            collection.update_one(
+                {"_id": record['_id']},
+                {"$set": {
+                    "photoFront": front_photo_link,
+                    "photoBack": back_photo_link,
+                    "playerTeam": team
+                }}
+            )
+
+            # For debugging
+            # print(f"Updated: set_type={set_type}, card_name={card_name}, card_number={card_number}, original_url={original_url}")
+        elif match_percentage > 70:
+            # Update the record if match percentage is above 70%
+            collection.update_one(
+                {"_id": record['_id']},
+                {"$set": {
+                    "photoFront": front_photo_link,
+                    "photoBack": back_photo_link,
+                    "playerTeam": team,
+                    "card_name": card_name
+                }}
+            )
+
+            # For debugging
+            # print(f"Updated: set_type={set_type}, card_name={card_name}, card_number={card_number}, original_url={original_url}")
+        else:
+            # Insert the record into the errorCards collection if lengths or values do not match
+            error_collection = db['errorCards']
+            error_collection.insert_one(card)
+    else:
+        # Insert the record into the errorCards collection if no record is found
+        error_collection = db['errorCards']
+        error_collection.insert_one(card)
+
 def process_url():
     while True:
         # Retrieve one random URL and type from the sets collection where setComplete is false and Total Cards is not 0
         set_info = sets_collection.aggregate([
-            {"$match": {"setComplete": False, "Total Cards": {"$lte": 10}}},
+            {"$match": {"setComplete": False}},
             {"$sample": {"size": 1}}
         ])
         
@@ -56,7 +126,6 @@ def process_url():
         modified_url = original_url.replace('ViewSet.cfm', 'Checklist.cfm')
 
         # Open the URL and extract photo links
-        print(f"Opening URL: {modified_url}")
         driver.get(modified_url)
 
         # Define the XPath to the table body and pagination element
@@ -94,9 +163,6 @@ def process_url():
                         card_name = row_data[1]  # Extract only the name part before any additional text like SN99
                         team = None
 
-                    # Print the extracted data
-                    # print(f"Front Photo: {front_photo_link}, Back Photo: {back_photo_link}, Card Number: {card_number}, Card Name: {card_name}, Team: {team}")
-
                     # Store the data
                     cards_data.append({
                         "front_photo": front_photo_link,
@@ -117,53 +183,30 @@ def process_url():
             extract_data_from_page()
             try:
                 pagination = driver.find_element(By.XPATH, xpath_to_pagination)
-                next_button = pagination.find_elements(By.TAG_NAME, "li")[-1]
-                if "disabled" in next_button.get_attribute("class") or "Next" not in next_button.text:
+                next_button = pagination.find_element(By.LINK_TEXT, '›')
+                if 'disabled' in next_button.get_attribute('class'):
                     break
-                next_button.find_element(By.TAG_NAME, "a").click()
+                next_button.click()
                 current_page += 1
-                # print(f"Navigating to page {current_page}")
                 time.sleep(2)  # Wait for the next page to load
             except Exception as e:
-                # print(f"Error navigating to the next page: {e}")
                 break
+        
+        ## For Debugging Purposes
+        # write_to_file(cards_data, f'cards_data_page_{current_page}.json')
 
-        # Update the database with the extracted data
-        for card in cards_data:
-            set_type = card['set_type']
-            original_url = card['original_url']
-            card_number = card['card_number']
-            card_name = card['card_name']
-            front_photo_link = card['front_photo']
-            back_photo_link = card['back_photo']
-            team = card['team']
+        # If we encountered an error, skip the rest of the processing for this URL
+        if not cards_data:
+            continue
 
-            # Connect to the appropriate collection based on set_type
-            collection = db[set_type]
-
-            # Search for the record with original_url, card number, and a regex match for card name
-            record = collection.find_one({
-                "original_url": original_url,
-                "card_number": card_number,
-                "card_name": {"$regex": re.escape(card_name), "$options": "i"}
-            })
-
-            # Update the record with new photo links and add player team, or log to errorCards if not found
-            if record:
-                collection.update_one(
-                    {"_id": record['_id']},
-                    {"$set": {
-                        "photoFront": front_photo_link,
-                        "photoBack": back_photo_link,
-                        "playerTeam": team
-                    }}
-                )
-                # print(f"Updated record for Card Number: {card_number}, Card Name: {card_name}")
-            else:
-                # Insert the record into the errorCards collection
-                error_collection = db['errorCards']
-                error_collection.insert_one(card)
-                # print(f"No record found for Card Number: {card_number}, Card Name: {card_name}. Added to errorCards collection.")
+        # Use ThreadPoolExecutor to update the database concurrently
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(update_card, card, db) for card in cards_data]
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    print(f"Error updating card: {e}")
 
         # Mark the set as complete in the Sets collection
         sets_collection.update_one(
